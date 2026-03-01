@@ -1,0 +1,82 @@
+system:
+  # 端口
+  addr: 8080
+  # 运行模式 debug/release
+  mode: debug
+  # 数据库配置
+  db-type: mysql
+  # casbin配置
+  casbin-config: |
+    [request_definition]
+    r = sub, dom, obj, act
+
+    [policy_definition]
+    p = sub, dom, obj, act
+
+    [role_definition]
+    g = _, _, _
+
+    [policy_effect]
+    e = some(where (p.eft == allow))
+
+    [matchers]
+    m = g(r.sub, p.sub, r.dom) && r.dom == p.dom && r.obj == p.obj && r.act == p.act
+
+# mysql配置
+mysql:
+  path: localhost
+  port: 3306
+  config: "charset=utf8mb4&parseTime=True&loc=Local"
+  db-name: go-vue-admin
+  username: root
+  password: "123456"
+  max-idle-conns: 10
+  max-open-conns: 100
+  log-mode: info
+  log-zap: true
+
+# jwt配置
+jwt:
+  # 密钥
+  signing-key: go-vue-admin-secret-key
+  # token过期时间（小时）
+  expires-time: 24
+  # token刷新时间（小时）
+  buffer-time: 1
+  # 签发者
+  issuer: go-vue-admin
+
+# zap日志配置
+zap:
+  level: info
+  format: console
+  prefix: '[go-vue-admin]'
+  director: logs
+  show-line: true
+  encode-level: LowercaseColorLevelEncoder
+  stacktrace-key: stacktrace
+  log-in-console: true
+
+# casbin配置
+casbin:
+  model-path: './rbac_model.conf'
+
+# 跨域配置
+# 开发环境：allow-all: true 允许所有来源
+# 生产环境：建议设置 allow-all: false，并在 whitelist 中配置具体的前端域名
+cors:
+  mode: strict-whitelist
+  whitelist:
+    # 开发环境前端地址
+    - allow-origin: "http://localhost:8848"
+      allow-headers: "content-type, authorization, x-requested-with"
+      allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+      expose-headers: "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type"
+      allow-credentials: true
+    # 生产环境前端地址（部署时修改）
+    # - allow-origin: "http://your-frontend-domain.com"
+    #   allow-headers: "content-type, authorization, x-requested-with"
+    #   allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    #   expose-headers: "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type"
+    #   allow-credentials: true
+  allow-all: true  # 开发环境设为 true，生产环境设为 false
