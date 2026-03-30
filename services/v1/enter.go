@@ -4,7 +4,7 @@ package v1
 type ServiceGroup struct {
 	SystemUserService
 	SystemRoleService
-	UserService
+	SystemLogService
 }
 
 var ServiceGroupApp = new(ServiceGroup)

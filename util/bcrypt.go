@@ -1,12 +1,18 @@
 package util
 
 import (
+	"go-vue-admin/global"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
 // BcryptHash 使用bcrypt对密码进行加密
 func BcryptHash(password string) string {
-	bytes, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		global.Log.Errorf("密码哈希失败: %v", err)
+		return ""
+	}
 	return string(bytes)
 }
 

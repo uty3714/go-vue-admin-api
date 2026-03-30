@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -68,13 +67,22 @@ func InitGormMysql() *gorm.DB {
 	})
 
 	if err != nil {
-		fmt.Printf("连接mysql数据库失败: %v\n", err)
+		global.Log.Errorf("连接mysql数据库失败: %v", err)
 		return nil
 	}
 
-	sqlDB, _ := db.DB()
+	sqlDB, err := db.DB()
+	if err != nil {
+		global.Log.Errorf("获取sqlDB失败: %v", err)
+		return nil
+	}
+	
 	sqlDB.SetMaxIdleConns(m.MaxIdleConns)
 	sqlDB.SetMaxOpenConns(m.MaxOpenConns)
+	// 添加连接最大生命周期配置，防止连接泄漏和超时问题
+	sqlDB.SetConnMaxLifetime(time.Hour)
+	// 添加连接最大空闲时间
+	sqlDB.SetConnMaxIdleTime(10 * time.Minute)
 
 	return db
 }

@@ -45,6 +45,10 @@ const (
 	ErrorMsgInternalServer  = "服务器内部错误"
 	ErrorCodeDBError        = 5001
 	ErrorMsgDBError         = "数据库操作失败"
+
+	// 限流错误 6000-6999
+	ErrorCodeTooManyRequests = 6000
+	ErrorMsgTooManyRequests  = "请求过于频繁，请稍后再试"
 )
 
 // ErrorCodeMap 错误码映射
@@ -65,6 +69,7 @@ var ErrorCodeMap = map[int]string{
 	ErrorCodeNotFound:         ErrorMsgNotFound,
 	ErrorCodeInternalServer:   ErrorMsgInternalServer,
 	ErrorCodeDBError:          ErrorMsgDBError,
+	ErrorCodeTooManyRequests:  ErrorMsgTooManyRequests,
 }
 
 // GetErrorMsg 获取错误信息

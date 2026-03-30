@@ -7,6 +7,7 @@ import (
 	"go-vue-admin/docs"
 	"go-vue-admin/flag"
 	"go-vue-admin/global"
+	"go-vue-admin/models"
 	"go-vue-admin/router/v1"
 
 	"github.com/gin-gonic/gin"
@@ -30,6 +31,14 @@ func main() {
 		os.Exit(1)
 	}
 	global.Log.Info("数据库连接成功")
+
+	// 初始化Casbin权限管理
+	global.Casbin = core.InitCasbin()
+	if global.Casbin == nil {
+		global.Log.Warn("Casbin权限管理初始化失败，将继续运行但权限控制将不可用")
+	} else {
+		global.Log.Info("Casbin权限管理初始化成功")
+	}
 
 	// 执行命令行操作（如 -db 初始化数据库）
 	// 放在数据库初始化之后，这样数据库操作才能正常执行
@@ -79,6 +88,9 @@ func main() {
 	v1.InitRouter(r)
 	global.Log.Info("路由初始化成功")
 
+	// 初始化操作日志表
+	initOperationLogTable()
+
 	// 启动服务
 	addr := fmt.Sprintf(":%d", global.Config.System.Addr)
 	global.Log.Infof("服务器启动成功，监听地址: %s", addr)
@@ -86,5 +98,18 @@ func main() {
 	if err := r.Run(addr); err != nil {
 		global.Log.Fatalf("服务器启动失败: %v", err)
 		os.Exit(1)
+	}
+}
+
+// initOperationLogTable 初始化操作日志表
+func initOperationLogTable() {
+	if global.DB == nil {
+		return
+	}
+	// 自动迁移操作日志表
+	if err := global.DB.AutoMigrate(&models.OperationLog{}, &models.LoginLog{}); err != nil {
+		global.Log.Errorf("操作日志表迁移失败: %v", err)
+	} else {
+		global.Log.Info("操作日志表初始化成功")
 	}
 }

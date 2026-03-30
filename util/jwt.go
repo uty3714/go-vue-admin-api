@@ -9,9 +9,6 @@ import (
 )
 
 // CustomClaims 自定义声明结构体并内嵌jwt.RegisteredClaims
-// jwt包自带的jwt.RegisteredClaims只包含了官方字段
-// 我们这里需要额外记录一个username和userID字段，所以要自定义结构体
-// 如果想要保存更多信息，都可以添加到这个结构体中
 type CustomClaims struct {
 	UserID   uint   `json:"userId"`
 	Username string `json:"username"`
@@ -60,9 +57,10 @@ func (j *JWT) CreateClaims(baseClaims CustomClaims) CustomClaims {
 
 // ParseToken 解析token
 func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (i interface{}, e error) {
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return j.SigningKey, nil
 	})
+	
 	if err != nil {
 		// 处理不同类型的错误
 		switch {
@@ -76,11 +74,11 @@ func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
 			return nil, TokenInvalid
 		}
 	}
+	
 	if token != nil {
 		if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
 			return claims, nil
 		}
-		return nil, TokenInvalid
 	}
 	return nil, TokenInvalid
 }
@@ -90,9 +88,11 @@ func (j *JWT) RefreshToken(tokenString string) (string, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return j.SigningKey, nil
 	})
+	
 	if err != nil {
 		return "", err
 	}
+	
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
 		claims.RegisteredClaims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Duration(global.Config.JWT.ExpiresTime) * time.Hour))
 		return j.CreateToken(*claims)

@@ -2,6 +2,7 @@ package conf
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
@@ -36,9 +37,14 @@ type Mysql struct {
 	LogZap       bool   `mapstructure:"log-zap" json:"log-zap" yaml:"log-zap"`
 }
 
+// Dsn 构建MySQL连接字符串（对用户名密码进行URL编码）
 func (m *Mysql) Dsn() string {
+	// 对用户名和密码进行URL编码，防止特殊字符导致DSN解析失败
+	encodedUsername := url.QueryEscape(m.Username)
+	encodedPassword := url.QueryEscape(m.Password)
+	
 	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s",
-		m.Username, m.Password, m.Path, m.Port, m.DbName, m.Config)
+		encodedUsername, encodedPassword, m.Path, m.Port, m.DbName, m.Config)
 }
 
 type JWT struct {

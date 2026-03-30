@@ -9,16 +9,19 @@
 ### 功能特性
 
 - ✅ RESTful API 设计
-- ✅ JWT 认证与授权
+- ✅ JWT 认证与授权（支持自动刷新）
+- ✅ Token 黑名单（登出即失效）
 - ✅ RBAC 权限管理（用户/角色/菜单）
+- ✅ 限流保护（登录/API 双限流）
 - ✅ 密码加密存储（bcrypt）
 - ✅ Swagger API 文档
 - ✅ CORS 跨域支持
 - ✅ 操作日志记录
+- ✅ 登录日志审计
 
 ## 🏗️ 技术栈
 
-- **语言**: Go 1.20+
+- **语言**: Go 1.24+
 - **框架**: Gin
 - **ORM**: GORM
 - **数据库**: MySQL 5.7+
@@ -41,8 +44,8 @@
 │   └── user.go          # 前台用户业务逻辑
 ├── models/              # 数据模型层（结构体定义）
 │   ├── system_user.go   # 用户模型
-│   ├── system_role.go   # 角色模型
-│   ├── system_menu.go   # 菜单模型
+│   ├── system_role.go   # 角色模型（包含菜单）
+│   ├── system_log.go    # 日志模型
 │   └── res/             # 响应模型
 ├── router/v1/           # 路由层
 ├── middleware/          # 中间件
@@ -127,6 +130,8 @@ swag init -g main.go -o ./docs
 | 角色 | `/api/v1/system/role/*` | 角色管理     |
 | 菜单 | `/api/v1/system/menu/*` | 菜单管理     |
 | 路由 | `/api/v1/system/routes` | 获取动态路由 |
+| 操作日志 | `/api/v1/system/log/operation/*` | 操作日志管理 |
+| 登录日志 | `/api/v1/system/log/login/*` | 登录日志管理 |
 
 ## 🚀 快速开始
 
@@ -438,7 +443,7 @@ cp go-vue-admin-api setting.yaml /opt/go-admin/
 ### Docker 部署
 
 ```dockerfile
-FROM golang:1.20-alpine AS builder
+FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY . .
 RUN go build -o go-vue-admin-api main.go

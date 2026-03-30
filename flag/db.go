@@ -53,10 +53,8 @@ func ResetDB() {
 
 	// 删除所有表（按依赖关系倒序删除）
 	tables := []interface{}{
-		&models.UserIntegral{},
-		&models.UserCart{},
-		&models.UserAddress{},
-		&models.User{},
+		&models.OperationLog{},
+		&models.LoginLog{},
 		&models.SystemRoleMenu{},
 		&models.SystemMenu{},
 		&models.SystemUser{},
@@ -94,10 +92,8 @@ func MigrateDB() {
 		&models.SystemRole{},
 		&models.SystemRoleMenu{},
 		&models.SystemMenu{},
-		&models.User{},
-		&models.UserAddress{},
-		&models.UserCart{},
-		&models.UserIntegral{},
+		&models.OperationLog{},
+		&models.LoginLog{},
 	)
 	if err != nil {
 		fmt.Printf("数据库迁移失败: %v\n", err)
@@ -265,6 +261,42 @@ func initMenuData() {
 		return
 	}
 
+	// 创建操作日志菜单
+	operationLogMenu := models.SystemMenu{
+		ParentID:  systemDir.ID,
+		MenuName:  "操作日志",
+		MenuType:  2, // 菜单
+		Icon:      "ri:file-list-line",
+		Path:      "/system/log/operation",
+		Component: "system/log/operation",
+		Perm:      "system:log:operation:view",
+		Sort:      4,
+		Status:    1,
+		Visible:   1,
+	}
+	if err := db.Create(&operationLogMenu).Error; err != nil {
+		fmt.Printf("创建操作日志菜单失败: %v\n", err)
+		return
+	}
+
+	// 创建登录日志菜单
+	loginLogMenu := models.SystemMenu{
+		ParentID:  systemDir.ID,
+		MenuName:  "登录日志",
+		MenuType:  2, // 菜单
+		Icon:      "ri:login-box-line",
+		Path:      "/system/log/login",
+		Component: "system/log/login",
+		Perm:      "system:log:login:view",
+		Sort:      5,
+		Status:    1,
+		Visible:   1,
+	}
+	if err := db.Create(&loginLogMenu).Error; err != nil {
+		fmt.Printf("创建登录日志菜单失败: %v\n", err)
+		return
+	}
+
 	// 查询 admin 角色 ID
 	var adminRole models.SystemRole
 	if err := db.Where("role_code = ?", "admin").First(&adminRole).Error; err != nil {
@@ -273,7 +305,7 @@ func initMenuData() {
 	}
 
 	// 给超级管理员角色分配所有菜单权限（首页使用前端静态路由）
-	menus := []models.SystemMenu{systemDir, userMenu, roleMenu, menuMenu}
+	menus := []models.SystemMenu{systemDir, userMenu, roleMenu, menuMenu, operationLogMenu, loginLogMenu}
 	for _, menu := range menus {
 		roleMenu := models.SystemRoleMenu{
 			RoleID: adminRole.ID,

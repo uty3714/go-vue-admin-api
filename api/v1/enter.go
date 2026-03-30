@@ -7,13 +7,13 @@ import (
 type ApiGroup struct {
 	SystemUserApi
 	SystemRoleApi
-	UserApi
+	SystemLogApi
 }
 
 var (
 	systemUserService = v1.ServiceGroupApp.SystemUserService
 	systemRoleService = v1.ServiceGroupApp.SystemRoleService
-	userService       = v1.ServiceGroupApp.UserService
+	systemLogService  = v1.ServiceGroupApp.SystemLogService
 )
 
 var ApiGroupApp = new(ApiGroup)

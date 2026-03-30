@@ -47,3 +47,6 @@ logs/
 # Debug
 debug
 __debug_bin
+
+/tmp
+.air.toml

@@ -34,14 +34,15 @@ func InitLogrus() *logrus.Logger {
 		})
 	}
 
-	// 创建日志目录
+	// 创建日志目录（使用更安全的权限）
 	if _, err := os.Stat(m.Director); os.IsNotExist(err) {
-		os.MkdirAll(m.Director, 0755)
+		// 使用0750权限，只允许所有者和组访问
+		os.MkdirAll(m.Director, 0750)
 	}
 
-	// 打开日志文件
+	// 打开日志文件（使用更安全的权限0640）
 	logPath := path.Join(m.Director, time.Now().Format("2006-01-02")+".log")
-	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
 	if err != nil {
 		logger.Error("打开日志文件失败: ", err)
 	}

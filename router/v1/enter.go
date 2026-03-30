@@ -16,9 +16,6 @@ func InitRouter(r *gin.Engine) *gin.RouterGroup {
 	{
 		// 系统管理路由
 		InitSystemRouter(apiV1)
-		
-		// 用户路由
-		InitUserRouter(apiV1)
 	}
 
 	return apiV1

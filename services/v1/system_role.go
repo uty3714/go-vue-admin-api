@@ -35,16 +35,34 @@ func (s *SystemRoleService) GetRoleList(page, pageSize int, keyword string) ([]m
 		db = db.Where("role_name LIKE ? OR role_code LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
 	}
 
-	db.Count(&total)
+	// 检查Count错误
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	
 	err := db.Offset((page - 1) * pageSize).Limit(pageSize).Find(&roles).Error
 
 	return roles, total, err
 }
 
+// GetRoleOptions 获取角色选项列表（排除超级管理员，用于用户新增/编辑时的下拉选择）
+func (s *SystemRoleService) GetRoleOptions() ([]models.SystemRole, error) {
+	var roles []models.SystemRole
+	err := global.DB.Model(&models.SystemRole{}).
+		Where("role_code != ?", "admin").
+		Where("status = ?", 1).
+		Order("sort asc").
+		Find(&roles).Error
+	return roles, err
+}
+
 // CheckRoleCodeExist 检查角色代码是否已存在
 func (s *SystemRoleService) CheckRoleCodeExist(roleCode string) bool {
 	var count int64
-	global.DB.Model(&models.SystemRole{}).Where("role_code = ?", roleCode).Count(&count)
+	if err := global.DB.Model(&models.SystemRole{}).Where("role_code = ?", roleCode).Count(&count).Error; err != nil {
+		global.Log.Errorf("检查角色代码是否存在失败: %v", err)
+		return false
+	}
 	return count > 0
 }
 
@@ -68,15 +86,22 @@ func (s *SystemRoleService) UpdateRole(role *models.SystemRole) error {
 
 // DeleteRole 删除角色
 func (s *SystemRoleService) DeleteRole(id uint) error {
-	// 检查是否有用户关联此角色
+	// 检查是否有用户关联此角色（在事务外查询）
 	var count int64
-	global.DB.Model(&models.SystemUser{}).Where("role_id = ?", id).Count(&count)
+	if err := global.DB.Model(&models.SystemUser{}).Where("role_id = ?", id).Count(&count).Error; err != nil {
+		return err
+	}
 	if count > 0 {
 		return ErrRoleHasUsers
 	}
 
 	// 开启事务
 	tx := global.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
 
 	// 删除角色的菜单权限关联
 	if err := tx.Where("role_id = ?", id).Delete(&models.SystemRoleMenu{}).Error; err != nil {
@@ -104,6 +129,11 @@ func (s *SystemRoleService) GetRoleMenus(roleID uint) ([]uint, error) {
 func (s *SystemRoleService) SetRoleMenus(req *SetRoleMenusReq) error {
 	// 开启事务
 	tx := global.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
 
 	// 删除原有的权限
 	if err := tx.Where("role_id = ?", req.RoleID).Delete(&models.SystemRoleMenu{}).Error; err != nil {
@@ -111,13 +141,18 @@ func (s *SystemRoleService) SetRoleMenus(req *SetRoleMenusReq) error {
 		return err
 	}
 
-	// 添加新的权限
-	for _, menuID := range req.MenuIDs {
-		roleMenu := models.SystemRoleMenu{
-			RoleID: req.RoleID,
-			MenuID: menuID,
+	// 批量添加新的权限（优化：使用CreateInBatches）
+	if len(req.MenuIDs) > 0 {
+		roleMenus := make([]models.SystemRoleMenu, 0, len(req.MenuIDs))
+		for _, menuID := range req.MenuIDs {
+			roleMenus = append(roleMenus, models.SystemRoleMenu{
+				RoleID: req.RoleID,
+				MenuID: menuID,
+			})
 		}
-		if err := tx.Create(&roleMenu).Error; err != nil {
+		
+		// 批量插入，每批100条
+		if err := tx.CreateInBatches(roleMenus, 100).Error; err != nil {
 			tx.Rollback()
 			return err
 		}
@@ -184,18 +219,35 @@ func (s *SystemRoleService) buildMenuTree(menus []models.SystemMenu, parentId ui
 
 // CreateMenu 创建菜单
 func (s *SystemRoleService) CreateMenu(menu *models.SystemMenu) (uint, error) {
-	if err := global.DB.Create(menu).Error; err != nil {
+	// 开启事务
+	tx := global.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 创建菜单
+	if err := tx.Create(menu).Error; err != nil {
+		tx.Rollback()
 		return 0, err
 	}
 
 	// 自动给超级管理员角色分配新菜单权限
 	var adminRole models.SystemRole
-	if err := global.DB.Where("role_code = ?", "admin").First(&adminRole).Error; err == nil {
+	if err := tx.Where("role_code = ?", "admin").First(&adminRole).Error; err == nil {
 		roleMenu := models.SystemRoleMenu{
 			RoleID: adminRole.ID,
 			MenuID: menu.ID,
 		}
-		global.DB.Create(&roleMenu)
+		if err := tx.Create(&roleMenu).Error; err != nil {
+			tx.Rollback()
+			return 0, err
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return 0, err
 	}
 
 	return menu.ID, nil
@@ -221,7 +273,9 @@ func (s *SystemRoleService) UpdateMenu(menu *models.SystemMenu) error {
 func (s *SystemRoleService) DeleteMenu(id uint) error {
 	// 检查是否有子菜单
 	var count int64
-	global.DB.Model(&models.SystemMenu{}).Where("parent_id = ?", id).Count(&count)
+	if err := global.DB.Model(&models.SystemMenu{}).Where("parent_id = ?", id).Count(&count).Error; err != nil {
+		return err
+	}
 	if count > 0 {
 		return ErrMenuHasChildren
 	}
