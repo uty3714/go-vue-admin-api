@@ -200,6 +200,12 @@ func (s *SystemUserService) Login(req *models.SystemUserLoginReq, clientIP, user
 
 // recordLoginLog 记录登录日志
 func (s *SystemUserService) recordLoginLog(username, ip, userAgent string, status int, message string) {
+	// 检查是否开启登录日志
+	var settingService SystemSettingService
+	if !settingService.IsLoginLogEnabled() {
+		return // 未开启则不记录
+	}
+
 	// 解析 User-Agent 获取浏览器和操作系统
 	browser, os := util.ParseUserAgent(userAgent)
 	// 获取 IP 地理位置
@@ -281,11 +287,51 @@ func (s *SystemUserService) getMenusWithParents(menuIDs []uint) []models.SystemM
 		return nil
 	}
 
+	// 获取系统设置，检查日志菜单是否应该显示
+	var settingService SystemSettingService
+	setting, _ := settingService.GetSetting()
+	showOperationLog := setting.EnableOperationLog == 1
+	showLoginLog := setting.EnableLoginLog == 1
+	
+	// 查询应该隐藏的菜单ID（操作日志和登录日志菜单）
+	var hiddenMenuIDs []uint
+	if !showOperationLog || !showLoginLog {
+		var logMenus []models.SystemMenu
+		pathPatterns := []string{}
+		if !showOperationLog {
+			pathPatterns = append(pathPatterns, "/system/log/operation")
+		}
+		if !showLoginLog {
+			pathPatterns = append(pathPatterns, "/system/log/login")
+		}
+		if len(pathPatterns) > 0 {
+			global.DB.Where("path IN ?", pathPatterns).Find(&logMenus)
+			for _, menu := range logMenus {
+				hiddenMenuIDs = append(hiddenMenuIDs, menu.ID)
+			}
+		}
+	}
+	
+	// 将隐藏的菜单ID从查询列表中移除
+	filteredMenuIDs := make([]uint, 0, len(menuIDs))
+	for _, id := range menuIDs {
+		shouldHide := false
+		for _, hiddenID := range hiddenMenuIDs {
+			if id == hiddenID {
+				shouldHide = true
+				break
+			}
+		}
+		if !shouldHide {
+			filteredMenuIDs = append(filteredMenuIDs, id)
+		}
+	}
+	
 	// 使用map去重
 	menuMap := make(map[uint]models.SystemMenu)
 	
 	// 当前层级的菜单ID
-	currentIDs := menuIDs
+	currentIDs := filteredMenuIDs
 	
 	// 最多循环10层，防止无限循环
 	for i := 0; i < 10 && len(currentIDs) > 0; i++ {

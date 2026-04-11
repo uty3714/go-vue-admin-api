@@ -16,8 +16,10 @@
 - ✅ 密码加密存储（bcrypt）
 - ✅ Swagger API 文档
 - ✅ CORS 跨域支持
-- ✅ 操作日志记录
-- ✅ 登录日志审计
+- ✅ 操作日志记录（支持开关控制）
+- ✅ 登录日志审计（支持开关控制）
+- ✅ Casbin RBAC 权限控制（API 级别）
+- ✅ 系统设置管理
 
 ## 🏗️ 技术栈
 
@@ -132,6 +134,7 @@ swag init -g main.go -o ./docs
 | 路由 | `/api/v1/system/routes` | 获取动态路由 |
 | 操作日志 | `/api/v1/system/log/operation/*` | 操作日志管理 |
 | 登录日志 | `/api/v1/system/log/login/*` | 登录日志管理 |
+| 系统设置 | `/api/v1/system/settings` | 日志开关控制 |
 
 ## 🚀 快速开始
 
@@ -332,13 +335,27 @@ Authorization: Bearer {your-jwt-token}
 
 ### 权限控制
 
-系统采用 RBAC 模型：
+系统采用 **RBAC + Casbin** 模型：
 
 ```
-用户 → 角色 → 菜单权限
+用户 → 角色 → 菜单权限 → Casbin 策略 → API 访问控制
 ```
 
-API 接口通过 `middleware.JWTAuth()` 进行认证，如需权限控制可扩展中间件。
+- **JWT 认证**: `middleware.JWTAuth()` 验证用户身份
+- **Casbin 授权**: `middleware.CasbinAuth()` 验证 API 访问权限
+- **自动同步**: 角色菜单权限变更时，Casbin 策略自动更新
+- **权限存储**: 策略存储在 MySQL `casbin_rule` 表中
+
+### 系统设置
+
+支持动态开关控制：
+
+| 设置项 | 说明 | 影响 |
+|--------|------|------|
+| 操作日志记录 | 开启/关闭操作日志 | 控制日志记录和菜单显示 |
+| 登录日志记录 | 开启/关闭登录日志 | 控制日志记录和菜单显示 |
+
+设置变更后立即生效，无需重启服务。
 
 ## 📝 常用命令
 

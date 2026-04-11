@@ -7,7 +7,6 @@ import (
 	"go-vue-admin/docs"
 	"go-vue-admin/flag"
 	"go-vue-admin/global"
-	"go-vue-admin/models"
 	"go-vue-admin/router/v1"
 
 	"github.com/gin-gonic/gin"
@@ -106,10 +105,6 @@ func initOperationLogTable() {
 	if global.DB == nil {
 		return
 	}
-	// 自动迁移操作日志表
-	if err := global.DB.AutoMigrate(&models.OperationLog{}, &models.LoginLog{}); err != nil {
-		global.Log.Errorf("操作日志表迁移失败: %v", err)
-	} else {
-		global.Log.Info("操作日志表初始化成功")
-	}
+	
+	global.Log.Info("操作日志表检查完成")
 }

@@ -10,6 +10,7 @@ import (
 var systemApi = v1.ApiGroupApp.SystemUserApi
 var systemRoleApi = v1.ApiGroupApp.SystemRoleApi
 var systemLogApi = v1.ApiGroupApp.SystemLogApi
+var systemSettingApi = v1.ApiGroupApp.SystemSettingApi
 
 // InitSystemRouter 初始化系统管理路由
 func InitSystemRouter(rg *gin.RouterGroup) {
@@ -24,6 +25,7 @@ func InitSystemRouter(rg *gin.RouterGroup) {
 		authRouter := router.Use(
 			middleware.JWTAuth(),
 			middleware.TokenBlacklistMiddleware(),
+			middleware.CasbinAuth(),
 			middleware.OperationLog(),
 			middleware.APIRateLimit(),
 		)
@@ -32,41 +34,45 @@ func InitSystemRouter(rg *gin.RouterGroup) {
 			authRouter.GET("/routes", systemApi.GetAsyncRoutes)
 
 			// 用户管理
-			authRouter.GET("/user/list", systemApi.GetUserList)
-			authRouter.GET("/user/info", systemApi.GetUserInfo)
-			authRouter.POST("/user/create", systemApi.CreateUser)
-			authRouter.PUT("/user/update", systemApi.UpdateUser)
-			authRouter.DELETE("/user/delete/:id", systemApi.DeleteUser)
+			authRouter.GET("/users", systemApi.GetUserList)
+			authRouter.GET("/users/info", systemApi.GetUserInfo)
+			authRouter.POST("/users", systemApi.CreateUser)
+			authRouter.PUT("/users/:id", systemApi.UpdateUser)
+			authRouter.DELETE("/users/:id", systemApi.DeleteUser)
 			// 当前用户相关（个人中心）
-			authRouter.PUT("/user/profile", systemApi.UpdateCurrentUser)
-			authRouter.PUT("/user/password", systemApi.UpdateCurrentUserPassword)
+			authRouter.PUT("/users/profile", systemApi.UpdateCurrentUser)
+			authRouter.PUT("/users/password", systemApi.UpdateCurrentUserPassword)
 
 			// 角色管理
-			authRouter.GET("/role/list", systemRoleApi.GetRoleList)
-			authRouter.GET("/role/options", systemRoleApi.GetRoleOptions)
-			authRouter.GET("/role/detail/:id", systemRoleApi.GetRoleDetail)
-			authRouter.POST("/role/create", systemRoleApi.CreateRole)
-			authRouter.PUT("/role/update", systemRoleApi.UpdateRole)
-			authRouter.DELETE("/role/delete/:id", systemRoleApi.DeleteRole)
-			authRouter.GET("/role/menus/:id", systemRoleApi.GetRoleMenus)
-			authRouter.PUT("/role/menus", systemRoleApi.SetRoleMenus)
+			authRouter.GET("/roles", systemRoleApi.GetRoleList)
+			authRouter.GET("/roles/options", systemRoleApi.GetRoleOptions)
+			authRouter.GET("/roles/:id", systemRoleApi.GetRoleDetail)
+			authRouter.POST("/roles", systemRoleApi.CreateRole)
+			authRouter.PUT("/roles/:id", systemRoleApi.UpdateRole)
+			authRouter.DELETE("/roles/:id", systemRoleApi.DeleteRole)
+			authRouter.GET("/roles/:id/menus", systemRoleApi.GetRoleMenus)
+			authRouter.PUT("/roles/:id/menus", systemRoleApi.SetRoleMenus)
 
 			// 菜单管理
-			authRouter.GET("/menu/list", systemRoleApi.GetMenuList)
-			authRouter.GET("/menu/tree", systemRoleApi.GetMenuTree)
-			authRouter.POST("/menu/create", systemRoleApi.CreateMenu)
-			authRouter.PUT("/menu/update", systemRoleApi.UpdateMenu)
-			authRouter.DELETE("/menu/delete/:id", systemRoleApi.DeleteMenu)
+			authRouter.GET("/menus", systemRoleApi.GetMenuList)
+			authRouter.GET("/menus/tree", systemRoleApi.GetMenuTree)
+			authRouter.POST("/menus", systemRoleApi.CreateMenu)
+			authRouter.PUT("/menus/:id", systemRoleApi.UpdateMenu)
+			authRouter.DELETE("/menus/:id", systemRoleApi.DeleteMenu)
+
+			// 系统设置
+			authRouter.GET("/settings", systemSettingApi.GetSystemSetting)
+			authRouter.PUT("/settings", systemSettingApi.UpdateSystemSetting)
 
 			// 日志管理
 			// 操作日志
-			authRouter.GET("/log/operation/list", systemLogApi.GetOperationLogList)
-			authRouter.DELETE("/log/operation/delete/:id", systemLogApi.DeleteOperationLog)
-			authRouter.DELETE("/log/operation/clear", systemLogApi.ClearOperationLog)
+			authRouter.GET("/operation-logs", systemLogApi.GetOperationLogList)
+			authRouter.DELETE("/operation-logs/:id", systemLogApi.DeleteOperationLog)
+			authRouter.DELETE("/operation-logs", systemLogApi.ClearOperationLog)
 			// 登录日志
-			authRouter.GET("/log/login/list", systemLogApi.GetLoginLogList)
-			authRouter.DELETE("/log/login/delete/:id", systemLogApi.DeleteLoginLog)
-			authRouter.DELETE("/log/login/clear", systemLogApi.ClearLoginLog)
+			authRouter.GET("/login-logs", systemLogApi.GetLoginLogList)
+			authRouter.DELETE("/login-logs/:id", systemLogApi.DeleteLoginLog)
+			authRouter.DELETE("/login-logs", systemLogApi.ClearLoginLog)
 		}
 	}
 }

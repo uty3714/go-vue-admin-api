@@ -59,15 +59,21 @@ func (tb *TokenBlacklist) AddToBlacklist(token string, expiresAt time.Time) erro
 
 // IsBlacklisted 检查token是否在黑名单中
 func (tb *TokenBlacklist) IsBlacklisted(token string) bool {
+	// 初始化表（只执行一次）
+	if err := initBlacklistTable(); err != nil {
+		global.Log.Debugf("初始化token黑名单表失败: %v", err)
+		return false
+	}
+	
 	var count int64
 	result := global.DB.Raw(
 		"SELECT COUNT(*) FROM token_blacklist WHERE token = ? AND expires_at > NOW()",
 		token,
 	).Scan(&count)
 	
-	// 如果查询出错（如表不存在），允许访问（表不存在意味着没有token被拉黑）
+	// 如果查询出错，允许访问
 	if result.Error != nil {
-		global.Log.Debugf("检查token黑名单时出错（表可能不存在）: %v", result.Error)
+		global.Log.Debugf("检查token黑名单时出错: %v", result.Error)
 		return false
 	}
 	

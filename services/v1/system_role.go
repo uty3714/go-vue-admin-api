@@ -2,6 +2,8 @@ package v1
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 
 	"go-vue-admin/global"
 	"go-vue-admin/models"
@@ -158,8 +160,171 @@ func (s *SystemRoleService) SetRoleMenus(req *SetRoleMenusReq) error {
 		}
 	}
 
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	// 同步更新 Casbin 策略
+	s.syncCasbinPolicy(req.RoleID, req.MenuIDs)
+
+	return nil
 }
+
+// syncCasbinPolicy 同步 Casbin 策略
+func (s *SystemRoleService) syncCasbinPolicy(roleID uint, menuIDs []uint) {
+	if global.Casbin == nil {
+		return
+	}
+
+	roleKey := fmt.Sprintf("role_%d", roleID)
+
+	// 清除该角色的所有旧策略
+	global.Casbin.RemoveFilteredPolicy(0, roleKey)
+
+	// 所有角色都允许访问菜单路由接口（注意路径带 /api 前缀）
+	global.Casbin.AddPolicy(roleKey, "/api/v1/system/routes", "GET")
+
+	// 如果没有菜单权限，直接返回
+	if len(menuIDs) == 0 {
+		return
+	}
+
+	// 获取菜单对应的 API 路径
+	var menus []models.SystemMenu
+	if err := global.DB.Where("id IN ?", menuIDs).Find(&menus).Error; err != nil {
+		global.Log.Errorf("获取菜单信息失败: %v", err)
+		return
+	}
+
+	// 为角色添加策略（基于菜单权限，路径带 /api 前缀）
+	for _, menu := range menus {
+		// 根据菜单类型添加不同的权限策略
+		switch menu.MenuType {
+		case 1: // 目录 - 只添加查看权限
+			if menu.Path != "" {
+				global.Casbin.AddPolicy(roleKey, "/api/v1/system/routes", "GET")
+			}
+		case 2: // 菜单 - 添加查看权限
+			// 根据菜单路径映射到对应的 API
+			s.addMenuPolicy(roleKey, menu)
+		case 3: // 按钮 - 添加操作权限
+			if menu.Perm != "" {
+				// 按钮权限格式: system:user:add, system:user:edit 等
+				s.addButtonPolicy(roleKey, menu)
+			}
+		}
+	}
+
+	// 所有角色都允许访问个人中心相关接口（路径带 /api 前缀）
+	global.Casbin.AddPolicy(roleKey, "/api/v1/system/users/info", "GET")
+	global.Casbin.AddPolicy(roleKey, "/api/v1/system/users/profile", "PUT")
+	global.Casbin.AddPolicy(roleKey, "/api/v1/system/users/password", "PUT")
+}
+
+// addMenuPolicy 添加菜单对应的 API 权限策略
+func (s *SystemRoleService) addMenuPolicy(roleKey string, menu models.SystemMenu) {
+	// 根据菜单路径映射到后端 API（路径带 /api 前缀）
+	apiPath := s.mapMenuPathToAPI(menu.Path)
+	if apiPath != "" {
+		global.Casbin.AddPolicy(roleKey, "/api"+apiPath, "GET")
+	}
+}
+
+// addButtonPolicy 添加按钮对应的 API 权限策略
+func (s *SystemRoleService) addButtonPolicy(roleKey string, menu models.SystemMenu) {
+	// 根据 perm 字段解析权限（路径带 /api 前缀）
+	// perm 格式: system:user:add, system:user:edit, system:user:delete 等
+	apiPath := s.mapPermToAPI(menu.Perm)
+	if apiPath != "" {
+		// 根据操作类型确定 HTTP 方法
+		method := s.mapPermToMethod(menu.Perm)
+		global.Casbin.AddPolicy(roleKey, "/api"+apiPath, method)
+	}
+}
+
+// mapMenuPathToAPI 将菜单路径映射到 API 路径
+func (s *SystemRoleService) mapMenuPathToAPI(menuPath string) string {
+	// 简化的映射规则
+	// 例如: /system/user -> /v1/system/users
+	//       /system/role -> /v1/system/roles
+	switch menuPath {
+	case "/system/user":
+		return "/v1/system/users"
+	case "/system/role":
+		return "/v1/system/roles"
+	case "/system/menu":
+		return "/v1/system/menus"
+	case "/system/setting":
+		return "/v1/system/settings"
+	case "/system/log/operation":
+		return "/v1/system/operation-logs"
+	case "/system/log/login":
+		return "/v1/system/login-logs"
+	default:
+		return ""
+	}
+}
+
+// mapPermToAPI 将权限标识映射到 API 路径
+func (s *SystemRoleService) mapPermToAPI(perm string) string {
+	// perm 格式: system:user:add, system:user:edit 等
+	// 映射到: /v1/system/users
+	parts := splitPerm(perm)
+	if len(parts) < 2 {
+		return ""
+	}
+
+	switch parts[0] + ":" + parts[1] {
+	case "system:user":
+		return "/v1/system/users"
+	case "system:role":
+		return "/v1/system/roles"
+	case "system:menu":
+		return "/v1/system/menus"
+	case "system:setting":
+		return "/v1/system/settings"
+	case "system:log:operation":
+		return "/v1/system/operation-logs"
+	case "system:log:login":
+		return "/v1/system/login-logs"
+	default:
+		return ""
+	}
+}
+
+// mapPermToMethod 将权限标识映射到 HTTP 方法
+func (s *SystemRoleService) mapPermToMethod(perm string) string {
+	// 根据 perm 后缀判断操作类型
+	if strings.Contains(perm, ":add") {
+		return "POST"
+	}
+	if strings.Contains(perm, ":edit") {
+		return "PUT"
+	}
+	if strings.Contains(perm, ":delete") {
+		return "DELETE"
+	}
+	if strings.Contains(perm, ":export") {
+		return "GET"
+	}
+	return "GET"
+}
+
+// splitPerm 分割权限标识
+func splitPerm(perm string) []string {
+	var parts []string
+	start := 0
+	for i := 0; i < len(perm); i++ {
+		if perm[i] == ':' {
+			parts = append(parts, perm[start:i])
+			start = i + 1
+		}
+	}
+	parts = append(parts, perm[start:])
+	return parts
+}
+
+
 
 // ==================== 菜单管理 ====================
 

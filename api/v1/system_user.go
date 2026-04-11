@@ -64,7 +64,7 @@ func (a *SystemUserApi) Logout(c *gin.Context) {
 // @Security BearerAuth
 // @Success 200 {object} res.Response{data=models.SystemUser} "成功"
 // @Failure 401 {object} res.Response "未登录或token过期"
-// @Router /api/v1/system/user/info [get]
+// @Router /api/v1/system/users/info [get]
 func (a *SystemUserApi) GetUserInfo(c *gin.Context) {
 	userId, exists := c.Get("userId")
 	if !exists {
@@ -135,7 +135,7 @@ func (a *SystemUserApi) GetAsyncRoutes(c *gin.Context) {
 // @Param status query string false "状态：1启用 2禁用"
 // @Success 200 {object} res.Response{data=res.PageResult{list=[]models.SystemUser}} "成功"
 // @Failure 401 {object} res.Response "未登录或token过期"
-// @Router /api/v1/system/user/list [get]
+// @Router /api/v1/system/users [get]
 func (a *SystemUserApi) GetUserList(c *gin.Context) {
 	page := util.StringToInt(c.DefaultQuery("page", "1"))
 	pageSize := util.StringToInt(c.DefaultQuery("pageSize", "10"))
@@ -175,7 +175,7 @@ func (a *SystemUserApi) GetUserList(c *gin.Context) {
 // @Success 200 {object} res.Response{data=uint} "创建成功，返回用户ID"
 // @Failure 400 {object} res.Response "请求参数错误"
 // @Failure 401 {object} res.Response "未登录或token过期"
-// @Router /api/v1/system/user/create [post]
+// @Router /api/v1/system/users [post]
 func (a *SystemUserApi) CreateUser(c *gin.Context) {
 	var req models.SystemUserReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -205,23 +205,28 @@ func (a *SystemUserApi) CreateUser(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
+// @Param id path int true "用户ID"
 // @Param data body models.SystemUserUpdateReq true "用户数据"
 // @Success 200 {object} res.Response "更新成功"
 // @Failure 400 {object} res.Response "请求参数错误"
 // @Failure 401 {object} res.Response "未登录或token过期"
 // @Failure 404 {object} res.Response "用户不存在"
-// @Router /api/v1/system/user/update [put]
+// @Router /api/v1/system/users/{id} [put]
 func (a *SystemUserApi) UpdateUser(c *gin.Context) {
+	id := util.StringToUint(c.Param("id"))
+	if id == 0 {
+		res.Fail(c, res.ErrorCodeParamInvalid)
+		return
+	}
+
 	var req models.SystemUserUpdateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		res.ValidationError(c, err.Error())
 		return
 	}
 
-	if req.ID == 0 {
-		res.Fail(c, res.ErrorCodeParamInvalid)
-		return
-	}
+	// 将路径参数的ID设置到请求体
+	req.ID = id
 
 	// 检查用户是否存在
 	if _, err := systemUserService.GetUserByID(req.ID); err != nil {
@@ -253,7 +258,7 @@ func (a *SystemUserApi) UpdateUser(c *gin.Context) {
 // @Success 200 {object} res.Response "删除成功"
 // @Failure 401 {object} res.Response "未登录或token过期"
 // @Failure 404 {object} res.Response "用户不存在"
-// @Router /api/v1/system/user/delete/{id} [delete]
+// @Router /api/v1/system/users/{id} [delete]
 func (a *SystemUserApi) DeleteUser(c *gin.Context) {
 	id := util.StringToUint(c.Param("id"))
 	if id == 0 {

@@ -8,12 +8,14 @@ type ApiGroup struct {
 	SystemUserApi
 	SystemRoleApi
 	SystemLogApi
+	SystemSettingApi
 }
 
 var (
-	systemUserService = v1.ServiceGroupApp.SystemUserService
-	systemRoleService = v1.ServiceGroupApp.SystemRoleService
-	systemLogService  = v1.ServiceGroupApp.SystemLogService
+	systemUserService    = v1.ServiceGroupApp.SystemUserService
+	systemRoleService    = v1.ServiceGroupApp.SystemRoleService
+	systemLogService     = v1.ServiceGroupApp.SystemLogService
+	systemSettingService = v1.ServiceGroupApp.SystemSettingService
 )
 
 var ApiGroupApp = new(ApiGroup)

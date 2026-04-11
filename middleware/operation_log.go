@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"go-vue-admin/global"
 	"go-vue-admin/models"
+	v1 "go-vue-admin/services/v1"
 	"io"
 	"strings"
 	"sync"
@@ -12,35 +13,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 操作日志工作池，限制并发goroutine数量防止泄露
-var (
-	logChan   = make(chan models.OperationLog, 1000) // 缓冲通道
-	logOnce   sync.Once
-)
-
-// initLogWorker 初始化日志工作池
-func initLogWorker() {
-	logOnce.Do(func() {
-		// 启动固定数量的工作协程
-		for i := 0; i < 5; i++ {
-			go func() {
-				for log := range logChan {
-					if err := global.DB.Create(&log).Error; err != nil {
-						global.Log.Errorf("保存操作日志失败: %v", err)
-					}
-				}
-			}()
-		}
-	})
-}
-
-func init() {
-	initLogWorker()
-}
-
 // OperationLog 操作日志中间件
 func OperationLog() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 检查是否开启操作日志
+		var settingService v1.SystemSettingService
+		if !settingService.IsOperationLogEnabled() {
+			// 未开启则直接执行后续逻辑，不记录日志
+			c.Next()
+			return
+		}
+
 		// 开始时间
 		startTime := time.Now()
 
@@ -109,8 +92,11 @@ func OperationLog() gin.HandlerFunc {
 		if path == "/api/v1/system/log/operation/list" || path == "/api/v1/system/log/login/list" {
 			responseData = "[日志列表数据省略]"
 		} else if len(responseData) > 1000 {
-			// 其他接口限制响应数据长度
-			responseData = responseData[:1000] + "..."
+			// 其他接口限制响应数据长度（使用 rune 避免截断 UTF-8 字符）
+			runes := []rune(responseData)
+			if len(runes) > 1000 {
+				responseData = string(runes[:1000]) + "..."
+			}
 		}
 
 		// 保存操作日志
@@ -130,13 +116,9 @@ func OperationLog() gin.HandlerFunc {
 			CreatedAt:     models.LocalTime(time.Now()),
 		}
 
-		// 发送到日志通道（有界队列，防止goroutine泄露）
-		select {
-		case logChan <- log:
-			// 成功发送到队列
-		default:
-			// 队列已满，丢弃日志并记录警告
-			global.Log.Warn("操作日志队列已满，丢弃日志记录")
+		// 直接同步保存日志
+		if err := global.DB.Create(&log).Error; err != nil {
+			global.Log.Errorf("保存操作日志失败: %v", err)
 		}
 	}
 }

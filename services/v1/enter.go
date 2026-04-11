@@ -5,6 +5,7 @@ type ServiceGroup struct {
 	SystemUserService
 	SystemRoleService
 	SystemLogService
+	SystemSettingService
 }
 
 var ServiceGroupApp = new(ServiceGroup)

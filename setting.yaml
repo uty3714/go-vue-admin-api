@@ -8,25 +8,25 @@ system:
   # casbin配置
   casbin-config: |
     [request_definition]
-    r = sub, dom, obj, act
+    r = sub, obj, act
 
     [policy_definition]
-    p = sub, dom, obj, act
+    p = sub, obj, act
 
     [role_definition]
-    g = _, _, _
+    g = _, _
 
     [policy_effect]
     e = some(where (p.eft == allow))
 
     [matchers]
-    m = g(r.sub, p.sub, r.dom) && r.dom == p.dom && r.obj == p.obj && r.act == p.act
+    m = g(r.sub, p.sub) && keyMatch(r.obj, p.obj) && (r.act == p.act || p.act == '*')
 
 # mysql配置
 mysql:
   path: localhost
   port: 3306
-  config: "charset=utf8mb4&parseTime=True&loc=Local"
+  config: "charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=True&loc=Local"
   db-name: go-vue-admin
   username: root
   password: "123456"
