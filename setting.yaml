@@ -24,12 +24,12 @@ system:
 
 # mysql配置
 mysql:
-  path: localhost
+  path: 39.107.138.235
   port: 3306
   config: "charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=True&loc=Local"
-  db-name: go-vue-admin
+  db-name: go-admin-db-base
   username: root
-  password: "123456"
+  password: "Wdm3714....."
   max-idle-conns: 10
   max-open-conns: 100
   log-mode: info
@@ -38,7 +38,7 @@ mysql:
 # jwt配置
 jwt:
   # 密钥
-  signing-key: go-vue-admin-secret-key
+  signing-key: AVf2JWrRjV7jk3d8vFMSCJX3RdC56Z7K
   # token过期时间（小时）
   expires-time: 24
   # token刷新时间（小时）
